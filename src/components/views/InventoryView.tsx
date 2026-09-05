@@ -438,6 +438,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 {/* Status Dropdown Filter */}
                 <div className="relative shrink-0" ref={statusDropdownRef}>
                   <button
+                    id="btn-inventory-status-dropdown"
                     type="button"
                     onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
                     aria-label="Filter properties by status"
@@ -485,7 +486,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                   {/* Status Dropdown Menu Popover */}
                   {isStatusDropdownOpen && (
-                    <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-72 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    <div
+                      id="popover-inventory-status-menu"
+                      className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-72 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150"
+                    >
                       <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <span>Filter by Status</span>
                         <span className="text-slate-400 font-normal lowercase">{units.length} total</span>
@@ -497,6 +501,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           const count = statusCounts[opt.id] ?? 0;
                           return (
                             <button
+                              id={`status-filter-option-${opt.id.toLowerCase().replace(/\s+/g, '-')}`}
                               key={opt.id}
                               type="button"
                               onClick={() => {

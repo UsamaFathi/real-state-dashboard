@@ -42,6 +42,13 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { LegalEntity } from '../../types';
+import {
+  DashboardDateRangeSelector,
+  DEFAULT_DATE_RANGE,
+  DateRangeState,
+  DateRangePreset,
+  PRESET_OPTIONS,
+} from '../dashboard/DashboardDateRangeSelector';
 
 interface ShadcnRealEstateDashboardViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -65,6 +72,8 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
     logoBg: 'bg-emerald-600',
   },
 }) => {
+  // Global Dashboard Date Range State
+  const [dashboardDateRange, setDashboardDateRange] = useState<DateRangeState>(DEFAULT_DATE_RANGE);
   const [timePeriod, setTimePeriod] = useState<'30 Days' | 'Quarter' | 'YTD'>('30 Days');
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
@@ -75,36 +84,6 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
   const [showPriorYearLine, setShowPriorYearLine] = useState<boolean>(true);
   const [showAvgBenchmark, setShowAvgBenchmark] = useState<boolean>(true);
   const [selectedTrajectoryMonth, setSelectedTrajectoryMonth] = useState<string>('Sep');
-
-  // Performance chart data: Contracted Value (M) and Offers & Reservations volume
-  const data30Days = [
-    { name: 'Day 1', contractedValue: 48, offers: 12, reservations: 8 },
-    { name: 'Day 5', contractedValue: 52, offers: 15, reservations: 9 },
-    { name: 'Day 10', contractedValue: 56, offers: 14, reservations: 11 },
-    { name: 'Day 15', contractedValue: 64, offers: 18, reservations: 13 },
-    { name: 'Day 20', contractedValue: 71, offers: 21, reservations: 15 },
-    { name: 'Day 25', contractedValue: 83, offers: 25, reservations: 18 },
-    { name: 'Day 30', contractedValue: 96.7, offers: 28, reservations: 22 },
-  ];
-
-  const dataQuarter = [
-    { name: 'Month 1', contractedValue: 62, offers: 42, reservations: 30 },
-    { name: 'Month 2', contractedValue: 78, offers: 56, reservations: 41 },
-    { name: 'Month 3', contractedValue: 96.7, offers: 74, reservations: 58 },
-  ];
-
-  const dataYTD = [
-    { name: 'Q1', contractedValue: 38, offers: 85, reservations: 64 },
-    { name: 'Q2', contractedValue: 58, offers: 112, reservations: 89 },
-    { name: 'Q3', contractedValue: 96.7, offers: 148, reservations: 118 },
-  ];
-
-  const currentChartData =
-    timePeriod === '30 Days'
-      ? data30Days
-      : timePeriod === 'Quarter'
-      ? dataQuarter
-      : dataYTD;
 
   const currency = selectedCompany.currencySymbol || 'EGP';
 
@@ -295,19 +274,201 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
     },
   ];
 
-  // Filtered trajectory dataset
-  const displayedTrajectoryData =
-    trajectoryPeriod === 'ytd'
-      ? allMonthlyTrajectoryData.slice(0, 9) // Jan to Sep
-      : trajectoryPeriod === 'trailing-6'
-      ? allMonthlyTrajectoryData.slice(3, 9) // Apr to Sep
-      : allMonthlyTrajectoryData; // Full Year (Jan to Dec)
+  // Filtered trajectory dataset dynamically synchronized with dashboardDateRange
+  const displayedTrajectoryData = React.useMemo(() => {
+    const filtered = allMonthlyTrajectoryData.filter((_, idx) =>
+      dashboardDateRange.monthIndices.includes(idx)
+    );
+    return filtered.length > 0 ? filtered : [allMonthlyTrajectoryData[8]];
+  }, [dashboardDateRange.monthIndices, allMonthlyTrajectoryData]);
 
   // Calculations complementing existing growth indicators
   const displayedTotalRevenue = displayedTrajectoryData.reduce((acc, curr) => acc + curr.revenue, 0);
   const displayedTotalTarget = displayedTrajectoryData.reduce((acc, curr) => acc + curr.target, 0);
-  const displayedAvgMonthly = displayedTrajectoryData.length > 0 ? displayedTotalRevenue / displayedTrajectoryData.length : 0;
-  const activeMonthData = allMonthlyTrajectoryData.find((d) => d.month === selectedTrajectoryMonth) || allMonthlyTrajectoryData[8];
+  const displayedAvgMonthly =
+    displayedTrajectoryData.length > 0 ? displayedTotalRevenue / displayedTrajectoryData.length : 0;
+  const totalContractsInPeriod = displayedTrajectoryData.reduce((acc, curr) => acc + curr.contracts, 0);
+  const activeMonthData =
+    displayedTrajectoryData.find((d) => d.month === selectedTrajectoryMonth) ||
+    displayedTrajectoryData[displayedTrajectoryData.length - 1] ||
+    allMonthlyTrajectoryData[8];
+
+  // Dynamic period multipliers and metrics for operational stats
+  const periodStats = React.useMemo(() => {
+    switch (dashboardDateRange.preset) {
+      case 'last-30-days':
+        return {
+          leads: 120,
+          offers: 23,
+          reservations: 42,
+          contracts: 18,
+          conversionRate: 34.8,
+          growthMoM: '+14.4%',
+          growthSubtitle: `vs. prior 30 days (+${currency} 1.5M)`,
+          prevPeriodRev: 10.7,
+          benchmarkTag: 'Benchmark: vs. Prior 30 Days',
+        };
+      case 'q3-2026':
+        return {
+          leads: 340,
+          offers: 64,
+          reservations: 88,
+          contracts: 45,
+          conversionRate: 36.2,
+          growthMoM: '+18.2%',
+          growthSubtitle: `vs. Q2 benchmark (+${currency} 5.6M)`,
+          prevPeriodRev: 28.5,
+          benchmarkTag: 'Benchmark: vs. Q2 2026',
+        };
+      case 'q2-2026':
+        return {
+          leads: 310,
+          offers: 58,
+          reservations: 76,
+          contracts: 36,
+          conversionRate: 32.5,
+          growthMoM: '+19.6%',
+          growthSubtitle: `vs. Q1 benchmark (+${currency} 5.6M)`,
+          prevPeriodRev: 28.5,
+          benchmarkTag: 'Benchmark: vs. Q1 2026',
+        };
+      case 'q1-2026':
+        return {
+          leads: 280,
+          offers: 48,
+          reservations: 62,
+          contracts: 28,
+          conversionRate: 30.1,
+          growthMoM: '+22.4%',
+          growthSubtitle: 'vs. Q4 2025 launch baseline',
+          prevPeriodRev: 23.2,
+          benchmarkTag: 'Benchmark: vs. Prior Quarter',
+        };
+      case 'trailing-6':
+        return {
+          leads: 650,
+          offers: 122,
+          reservations: 164,
+          contracts: 81,
+          conversionRate: 35.4,
+          growthMoM: '+21.5%',
+          growthSubtitle: 'vs. preceding 6-month period',
+          prevPeriodRev: 56.1,
+          benchmarkTag: 'Benchmark: vs. Prior 6 Months',
+        };
+      case 'full-year':
+        return {
+          leads: 1320,
+          offers: 248,
+          reservations: 330,
+          contracts: 168,
+          conversionRate: 35.8,
+          growthMoM: '+24.8%',
+          growthSubtitle: `vs. FY 2025 baseline (${currency} 113.2M)`,
+          prevPeriodRev: 113.2,
+          benchmarkTag: 'Benchmark: vs. FY 2025 Baseline',
+        };
+      case 'custom':
+        return {
+          leads: Math.round(displayedTotalRevenue * 9.6),
+          offers: Math.round(displayedTotalRevenue * 1.75),
+          reservations: Math.round(displayedTotalRevenue * 2.34),
+          contracts: totalContractsInPeriod,
+          conversionRate: 34.5,
+          growthMoM: '+16.2%',
+          growthSubtitle: 'computed for selected custom range',
+          prevPeriodRev: Number((displayedTotalRevenue * 0.86).toFixed(1)),
+          benchmarkTag: 'Benchmark: Period Comparison',
+        };
+      case 'ytd':
+      default:
+        return {
+          leads: 930,
+          offers: 170,
+          reservations: 226,
+          contracts: 104,
+          conversionRate: 34.8,
+          growthMoM: '+14.4%',
+          growthSubtitle: `vs. previous month (+${currency} 12.2M)`,
+          prevPeriodRev: 84.5,
+          benchmarkTag: 'Benchmark: vs. Previous Month',
+        };
+    }
+  }, [dashboardDateRange.preset, currency, displayedTotalRevenue, totalContractsInPeriod]);
+
+  // Commercial performance chart data responding dynamically to the active date range
+  const currentChartData = React.useMemo(() => {
+    switch (dashboardDateRange.preset) {
+      case 'last-30-days':
+        return [
+          { name: 'Day 1', contractedValue: 4.8, offers: 4, reservations: 3 },
+          { name: 'Day 5', contractedValue: 5.2, offers: 7, reservations: 5 },
+          { name: 'Day 10', contractedValue: 6.6, offers: 11, reservations: 8 },
+          { name: 'Day 15', contractedValue: 8.4, offers: 14, reservations: 10 },
+          { name: 'Day 20', contractedValue: 9.7, offers: 17, reservations: 13 },
+          { name: 'Day 25', contractedValue: 10.9, offers: 22, reservations: 16 },
+          { name: 'Day 30', contractedValue: 12.2, offers: 28, reservations: 22 },
+        ];
+      case 'q3-2026':
+        return [
+          { name: 'Jul 2026', contractedValue: 11.2, offers: 24, reservations: 18 },
+          { name: 'Aug 2026', contractedValue: 21.9, offers: 48, reservations: 36 },
+          { name: 'Sep 2026', contractedValue: 34.1, offers: 74, reservations: 58 },
+        ];
+      case 'q2-2026':
+        return [
+          { name: 'Apr 2026', contractedValue: 9.8, offers: 20, reservations: 15 },
+          { name: 'May 2026', contractedValue: 21.3, offers: 42, reservations: 32 },
+          { name: 'Jun 2026', contractedValue: 34.1, offers: 68, reservations: 52 },
+        ];
+      case 'q1-2026':
+        return [
+          { name: 'Jan 2026', contractedValue: 8.5, offers: 18, reservations: 12 },
+          { name: 'Feb 2026', contractedValue: 17.7, offers: 38, reservations: 28 },
+          { name: 'Mar 2026', contractedValue: 28.5, offers: 54, reservations: 42 },
+        ];
+      case 'trailing-6':
+        return [
+          { name: 'Apr', contractedValue: 9.8, offers: 20, reservations: 15 },
+          { name: 'May', contractedValue: 21.3, offers: 42, reservations: 32 },
+          { name: 'Jun', contractedValue: 34.1, offers: 68, reservations: 52 },
+          { name: 'Jul', contractedValue: 45.3, offers: 92, reservations: 70 },
+          { name: 'Aug', contractedValue: 56.0, offers: 116, reservations: 88 },
+          { name: 'Sep', contractedValue: 68.2, offers: 144, reservations: 110 },
+        ];
+      case 'full-year':
+        return [
+          { name: 'Q1 (Jan–Mar)', contractedValue: 28.5, offers: 54, reservations: 42 },
+          { name: 'Q2 (Apr–Jun)', contractedValue: 62.6, offers: 122, reservations: 94 },
+          { name: 'Q3 (Jul–Sep)', contractedValue: 96.7, offers: 170, reservations: 148 },
+          { name: 'Q4 (Projected)', contractedValue: 141.4, offers: 248, reservations: 226 },
+        ];
+      case 'ytd':
+      default:
+        if (dashboardDateRange.preset === 'custom') {
+          return displayedTrajectoryData.map((d, i) => {
+            let cumRev = 0;
+            for (let k = 0; k <= i; k++) {
+              cumRev += displayedTrajectoryData[k].revenue;
+            }
+            return {
+              name: d.month,
+              contractedValue: Number(cumRev.toFixed(1)),
+              offers: Math.round(d.contracts * 2.2 + (i + 1) * 6),
+              reservations: Math.round(d.contracts * 1.6 + (i + 1) * 4),
+            };
+          });
+        }
+        return [
+          { name: 'Q1 (Jan–Mar)', contractedValue: 28.5, offers: 54, reservations: 42 },
+          { name: 'Q2 (Apr–Jun)', contractedValue: 62.6, offers: 122, reservations: 94 },
+          { name: 'Q3 (Jul–Sep)', contractedValue: 96.7, offers: 170, reservations: 148 },
+        ];
+    }
+  }, [dashboardDateRange.preset, displayedTrajectoryData]);
+
+  const maxContractedValue = Math.max(...currentChartData.map((d) => d.contractedValue), 10);
+  const chartYMax = Math.ceil(maxContractedValue * 1.15);
 
   const leadsList = [
     {
@@ -436,6 +597,29 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
         </div>
       </div>
 
+      {/* 1.5 GLOBAL DATE RANGE SELECTOR (TOP OF DASHBOARD) */}
+      <DashboardDateRangeSelector
+        value={dashboardDateRange}
+        onChange={(newRange) => {
+          setDashboardDateRange(newRange);
+          // Keep trajectoryPeriod in sync if matching preset
+          if (newRange.preset === 'ytd' || newRange.preset === 'full-year' || newRange.preset === 'trailing-6') {
+            setTrajectoryPeriod(newRange.preset);
+          }
+          // Ensure active month in trajectory inspection matches new range
+          if (newRange.monthIndices.length > 0) {
+            const lastIdx = newRange.monthIndices[newRange.monthIndices.length - 1];
+            const mObj = allMonthlyTrajectoryData[lastIdx];
+            if (mObj) {
+              setSelectedTrajectoryMonth(mObj.month);
+            }
+          }
+        }}
+        onToast={onToast}
+        currency={currency}
+        totalFilteredRevenue={displayedTotalRevenue}
+      />
+
       {/* 2. PRIMARY BUSINESS KPI CARDS (Real Estate OS metrics) */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -444,12 +628,12 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
               Executive Performance Metrics
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Key business indicators showing growth and absorption against previous month
+              Key business indicators for {dashboardDateRange.label} ({dashboardDateRange.formattedSpan})
             </p>
           </div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 text-xs font-medium self-start sm:self-auto">
             <Clock className="w-3.5 h-3.5 text-gray-400" />
-            <span>Benchmark: vs. Previous Month</span>
+            <span>{periodStats.benchmarkTag}</span>
           </div>
         </div>
 
@@ -610,7 +794,7 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
             onClick={() => {
               setSelectedKpi('Contracted Value');
               onNavigateTab?.('contracts');
-              onToast?.(`Focusing Monthly Revenue Trajectory (${currency} 96.7M YTD, +14.4% MoM)`);
+              onToast?.(`Focusing Monthly Revenue Trajectory (${currency} ${displayedTotalRevenue.toFixed(1)}M ${dashboardDateRange.label}, ${periodStats.growthMoM})`);
               const el = document.getElementById('card-monthly-revenue-trajectory');
               if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -634,26 +818,26 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
 
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-950 dark:text-white">
-                  {currency === 'EGP' ? 'EGP 96.7M' : '$96.7M'}
+                  {currency} {displayedTotalRevenue.toFixed(1)}M
                 </span>
                 {/* Trend indicator: Up arrow with percentage */}
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-900/60 shadow-2xs">
                   <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                  <span>+14.4%</span>
+                  <span>{periodStats.growthMoM}</span>
                 </span>
               </div>
 
               <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">
-                YTD executed signed contracts
+                {dashboardDateRange.label} ({dashboardDateRange.formattedSpan})
               </div>
             </div>
 
-            {/* Growth against previous month comparison breakdown */}
+            {/* Growth against previous benchmark breakdown */}
             <div className="pt-2.5 mt-3 border-t border-gray-100 dark:border-gray-800/80 flex items-center justify-between text-[11px]">
-              <span className="text-gray-500 dark:text-gray-400">vs. previous month</span>
+              <span className="text-gray-500 dark:text-gray-400">vs. benchmark</span>
               <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
                 <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                +{currency} 12.2M (84.5M)
+                +{currency} {(Math.max(0, displayedTotalRevenue - periodStats.prevPeriodRev)).toFixed(1)}M ({periodStats.prevPeriodRev.toFixed(1)}M)
               </span>
             </div>
           </div>
@@ -667,9 +851,9 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
           className="p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#171926] cursor-pointer transition text-center"
         >
           <div className="text-gray-500 dark:text-gray-400 font-medium">Active Leads</div>
-          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">120</div>
+          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">{periodStats.leads.toLocaleString()}</div>
           <div className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +15.4% vs prev. mo
+            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> {periodStats.growthMoM} vs baseline
           </div>
         </div>
         <div
@@ -677,9 +861,9 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
           className="p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#171926] cursor-pointer transition text-center"
         >
           <div className="text-gray-500 dark:text-gray-400 font-medium">Offers</div>
-          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">23</div>
+          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">{periodStats.offers}</div>
           <div className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +9.5% vs prev. mo
+            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +9.5% conversion
           </div>
         </div>
         <div
@@ -687,9 +871,9 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
           className="p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#171926] cursor-pointer transition text-center"
         >
           <div className="text-gray-500 dark:text-gray-400 font-medium">Reservations</div>
-          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">42</div>
+          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">{periodStats.reservations}</div>
           <div className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +16.7% vs prev. mo
+            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +16.7% vs prev.
           </div>
         </div>
         <div
@@ -697,9 +881,9 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
           className="p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#171926] cursor-pointer transition text-center"
         >
           <div className="text-gray-500 dark:text-gray-400 font-medium">Contracts</div>
-          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">18</div>
+          <div className="text-base font-bold text-gray-950 dark:text-white mt-0.5">{periodStats.contracts}</div>
           <div className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +20.0% vs prev. mo
+            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +20.0% executed
           </div>
         </div>
         <div
@@ -708,10 +892,10 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
         >
           <div className="text-gray-500 dark:text-gray-400 font-medium">Conversion Rate</div>
           <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-            34.8%
+            {periodStats.conversionRate}%
           </div>
           <div className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +2.3% vs prev. mo
+            <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" /> +2.3% vs target
           </div>
         </div>
       </div>
@@ -730,27 +914,44 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
                 <span>Revenue Velocity</span>
               </span>
               <span className="text-xs text-gray-400 font-medium">
-                Pacing: 108.9% of Budget
+                Pacing: {displayedTotalTarget > 0 ? ((displayedTotalRevenue / displayedTotalTarget) * 100).toFixed(1) : '100'}% of Budget
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-gray-950 dark:text-white tracking-tight">
               Monthly Revenue Trajectory
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Contracted sales momentum, target milestones, and growth trajectory across all master developments
+              Contracted sales momentum, target milestones, and trajectory for {dashboardDateRange.label} ({dashboardDateRange.formattedSpan})
             </p>
           </div>
 
           {/* Time Range Filter & Toggles */}
           <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+            {dashboardDateRange.preset !== 'ytd' && dashboardDateRange.preset !== 'full-year' && dashboardDateRange.preset !== 'trailing-6' && (
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-semibold text-xs border border-emerald-200/60 dark:border-emerald-800/60">
+                {dashboardDateRange.label}
+              </span>
+            )}
             <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200/60 dark:border-gray-700/60 text-xs">
               <button
                 onClick={() => {
                   setTrajectoryPeriod('ytd');
+                  const mapped = PRESET_OPTIONS.find((p) => p.id === 'ytd');
+                  if (mapped) {
+                    setDashboardDateRange({
+                      preset: mapped.id,
+                      startDate: mapped.startDate,
+                      endDate: mapped.endDate,
+                      label: mapped.label,
+                      formattedSpan: mapped.formattedSpan,
+                      daysCount: mapped.daysCount,
+                      monthIndices: mapped.monthIndices,
+                    });
+                  }
                   onToast?.('Showing YTD Revenue Trajectory (Jan – Sep 2026)');
                 }}
                 className={`px-3 py-1 font-semibold rounded-lg transition-all cursor-pointer ${
-                  trajectoryPeriod === 'ytd'
+                  dashboardDateRange.preset === 'ytd'
                     ? 'bg-white dark:bg-[#1a1d28] text-gray-950 dark:text-white shadow-xs'
                     : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                 }`}
@@ -760,10 +961,22 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
               <button
                 onClick={() => {
                   setTrajectoryPeriod('full-year');
+                  const mapped = PRESET_OPTIONS.find((p) => p.id === 'full-year');
+                  if (mapped) {
+                    setDashboardDateRange({
+                      preset: mapped.id,
+                      startDate: mapped.startDate,
+                      endDate: mapped.endDate,
+                      label: mapped.label,
+                      formattedSpan: mapped.formattedSpan,
+                      daysCount: mapped.daysCount,
+                      monthIndices: mapped.monthIndices,
+                    });
+                  }
                   onToast?.('Showing Full Year Trajectory with Q4 Projections');
                 }}
                 className={`px-3 py-1 font-semibold rounded-lg transition-all cursor-pointer ${
-                  trajectoryPeriod === 'full-year'
+                  dashboardDateRange.preset === 'full-year'
                     ? 'bg-white dark:bg-[#1a1d28] text-gray-950 dark:text-white shadow-xs'
                     : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                 }`}
@@ -773,10 +986,22 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
               <button
                 onClick={() => {
                   setTrajectoryPeriod('trailing-6');
+                  const mapped = PRESET_OPTIONS.find((p) => p.id === 'trailing-6');
+                  if (mapped) {
+                    setDashboardDateRange({
+                      preset: mapped.id,
+                      startDate: mapped.startDate,
+                      endDate: mapped.endDate,
+                      label: mapped.label,
+                      formattedSpan: mapped.formattedSpan,
+                      daysCount: mapped.daysCount,
+                      monthIndices: mapped.monthIndices,
+                    });
+                  }
                   onToast?.('Showing Trailing 6 Months Momentum');
                 }}
                 className={`px-3 py-1 font-semibold rounded-lg transition-all cursor-pointer ${
-                  trajectoryPeriod === 'trailing-6'
+                  dashboardDateRange.preset === 'trailing-6'
                     ? 'bg-white dark:bg-[#1a1d28] text-gray-950 dark:text-white shadow-xs'
                     : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                 }`}
@@ -791,19 +1016,19 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3.5 bg-gray-50/80 dark:bg-[#161824] rounded-xl border border-gray-100 dark:border-gray-800/80">
           <div className="space-y-0.5">
             <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 block">
-              Current Run-Rate (Sep)
+              Run-Rate ({activeMonthData.month})
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-base sm:text-lg font-bold text-gray-950 dark:text-white font-mono">
-                {currency} 12.2M
+                {currency} {activeMonthData.revenue.toFixed(1)}M
               </span>
               <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                +14.4% MoM
+                +{activeMonthData.momGrowth}% MoM
               </span>
             </div>
             <span className="text-[10px] text-gray-400 block">
-              +{currency} 1.5M over Aug ({currency} 10.7M)
+              Target: {currency} {activeMonthData.target.toFixed(1)}M ({activeMonthData.month})
             </span>
           </div>
 
@@ -813,33 +1038,33 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-base sm:text-lg font-bold text-gray-950 dark:text-white font-mono">
-                108.9%
+                {displayedTotalTarget > 0 ? ((displayedTotalRevenue / displayedTotalTarget) * 100).toFixed(1) : '100'}%
               </span>
               <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <Target className="w-3 h-3 mr-0.5" />
-                +{currency} 1.0M
+                +{currency} {(Math.max(0, displayedTotalRevenue - displayedTotalTarget)).toFixed(1)}M
               </span>
             </div>
             <span className="text-[10px] text-gray-400 block">
-              Sep Target: {currency} 11.2M
+              Budget Target: {currency} {displayedTotalTarget.toFixed(1)}M
             </span>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 block">
-              Signed Contracts (Sep)
+              Signed Contracts ({dashboardDateRange.label})
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-base sm:text-lg font-bold text-gray-950 dark:text-white font-mono">
-                18 Units
+                {totalContractsInPeriod} Units
               </span>
               <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                +20.0% MoM
+                {periodStats.growthMoM}
               </span>
             </div>
             <span className="text-[10px] text-gray-400 block">
-              Avg Deal: {currency} 678K / unit
+              Avg Deal: {currency} {Math.round(activeMonthData.averageDealSize * 1000)}K / unit
             </span>
           </div>
 
@@ -849,14 +1074,14 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                {currency} 96.7M
+                {currency} {displayedTotalRevenue.toFixed(1)}M
               </span>
               <span className="inline-flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400">
-                YTD Realized
+                {dashboardDateRange.label} Realized
               </span>
             </div>
             <span className="text-[10px] text-gray-400 block">
-              Previous month benchmark: {currency} 84.5M
+              Benchmark: {currency} {periodStats.prevPeriodRev.toFixed(1)}M
             </span>
           </div>
         </div>
@@ -1259,23 +1484,51 @@ export const ShadcnRealEstateDashboardView: React.FC<ShadcnRealEstateDashboardVi
           </div>
 
           {/* Time range switcher: 30 Days, Quarter, YTD */}
-          <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl self-start sm:self-auto border border-gray-200/60 dark:border-gray-700/60">
-            {(['30 Days', 'Quarter', 'YTD'] as const).map((period) => (
-              <button
-                key={period}
-                onClick={() => {
-                  setTimePeriod(period);
-                  onToast?.(`Commercial Performance: ${period}`);
-                }}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  timePeriod === period
-                    ? 'bg-white dark:bg-[#1a1d28] text-gray-950 dark:text-white shadow-xs'
-                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-              >
-                {period}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {dashboardDateRange.preset !== 'last-30-days' && dashboardDateRange.preset !== 'q3-2026' && dashboardDateRange.preset !== 'ytd' && (
+              <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                Filtered: {dashboardDateRange.label}
+              </span>
+            )}
+            <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200/60 dark:border-gray-700/60">
+              {(['30 Days', 'Quarter', 'YTD'] as const).map((period) => {
+                const isSelected =
+                  (period === '30 Days' && dashboardDateRange.preset === 'last-30-days') ||
+                  (period === 'Quarter' && dashboardDateRange.preset === 'q3-2026') ||
+                  (period === 'YTD' && dashboardDateRange.preset === 'ytd') ||
+                  timePeriod === period;
+
+                return (
+                  <button
+                    key={period}
+                    onClick={() => {
+                      setTimePeriod(period);
+                      const targetPreset = period === '30 Days' ? 'last-30-days' : period === 'Quarter' ? 'q3-2026' : 'ytd';
+                      const mapped = PRESET_OPTIONS.find((p) => p.id === targetPreset);
+                      if (mapped) {
+                        setDashboardDateRange({
+                          preset: mapped.id,
+                          startDate: mapped.startDate,
+                          endDate: mapped.endDate,
+                          label: mapped.label,
+                          formattedSpan: mapped.formattedSpan,
+                          daysCount: mapped.daysCount,
+                          monthIndices: mapped.monthIndices,
+                        });
+                      }
+                      onToast?.(`Commercial Performance: ${period}`);
+                    }}
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-white dark:bg-[#1a1d28] text-gray-950 dark:text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                    }`}
+                  >
+                    {period}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
