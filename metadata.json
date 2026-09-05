@@ -1,0 +1,6 @@
+{
+  "name": "Shadcn UI Kit - Real Estate Dashboard",
+  "description": "Premium Shadcn UI Kit Real Estate Dashboard with active leads tracking, $96.7M revenue analytics, performance charts, and property listings showcase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

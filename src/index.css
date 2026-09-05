@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --color-brand-navy: #102a43;
+  --color-brand-dark: #060709;
+  --color-brand-blue: #2563eb;
+  --color-brand-blue-dark: #004ac6;
+  --color-brand-surface: #f7f9fc;
+  
+  /* Luxury Imperial & Champagne Gold Palette */
+  --color-gold-50: #fcf9ee;
+  --color-gold-100: #f8efd0;
+  --color-gold-200: #f0dea2;
+  --color-gold-300: #e6c86c;
+  --color-gold-400: #deb03f;
+  --color-gold-500: #d4a024;
+  --color-gold-600: #ba8219;
+  --color-gold-700: #946117;
+  --color-gold-800: #7a4f1a;
+  --color-gold-900: #664219;
+  --color-gold-950: #3c220a;
+
+  /* Luxury Obsidian / Onyx Blacks */
+  --color-obsidian-950: #060709;
+  --color-obsidian-900: #0a0c10;
+  --color-obsidian-850: #0e1117;
+  --color-obsidian-800: #13161f;
+  --color-obsidian-750: #181c27;
+  --color-obsidian-700: #212634;
+}
+
+html {
+  transition: background-color 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+              color 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html.dark {
+  color-scheme: dark;
+  background-color: #060709;
+}
+
+body {
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+              color 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html.dark body {
+  background-color: #060709;
+  color: #f6f6f8;
+}
+
+/* Global synchronized silky-smooth transitions for theme toggling */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow, opacity;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-duration: 380ms;
+}
+
+/* Exempt high-frequency canvas or rotation animations from transition lag */
+[class*="animate-spin"], [class*="animate-ping"] {
+  transition: none !important;
+}
+
+/* Luxury Black & Gold utilities */
+.luxury-gold-gradient {
+  background: linear-gradient(135deg, #d4af37 0%, #f7e7b4 45%, #c59728 100%);
+}
+
+.luxury-gold-gradient-hover:hover {
+  background: linear-gradient(135deg, #e5c158 0%, #faeed0 45%, #d4a024 100%);
+}
+
+.luxury-gold-gradient-subtle {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.16) 0%, rgba(247, 231, 180, 0.05) 50%, rgba(186, 130, 25, 0.14) 100%);
+}
+
+.luxury-gold-text {
+  background: linear-gradient(135deg, #e5c158 0%, #fbf1d8 50%, #c59728 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.luxury-gold-border {
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+.luxury-gold-border-subtle {
+  border-color: rgba(212, 175, 55, 0.18);
+}
+
+.luxury-gold-glow {
+  box-shadow: 0 0 25px -4px rgba(212, 175, 55, 0.28);
+}
+
+.luxury-gold-glow-sm {
+  box-shadow: 0 0 12px -2px rgba(212, 175, 55, 0.22);
+}
+
+.luxury-dark-card {
+  background-color: #0e1117;
+  border-color: rgba(212, 175, 55, 0.16);
+}
+
+.luxury-dark-surface {
+  background-color: #060709;
+}
+
+/* Custom crisp scrollbars in luxury theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  transition: background-color 0.3s ease;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #25231c;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #deb03f;
+}
+
